@@ -1,0 +1,100 @@
+#!/usr/bin/python
+#chmod 0744 client2.py
+# the above lines give appropriate permissions to run directly
+# client.py
+
+# this version differs a little from client2.py as it needs to follow
+# the guidelines of submission
+
+import socket
+# to parse arguments
+import sys, getopt
+# for ssl
+import ssl
+# default port value
+port = 27993
+# default host
+host = 'cs570016.ccs.neu.edu'
+# create a socket object
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "p:sh" ,["help"])
+except getopt.GetoptError:
+    print "./client <-p port> <-s> [hostname] [NEU ID]"
+    sys.exit(2)
+
+for opt, arg in opts:
+    if opt in ('-h', '--help'):
+        print "./client <-p port> <-s> [hostname] [NEU ID]"
+        sys.exit(2)
+    elif opt in ('-s'):
+        #todo later
+        #print "enabling SSL"
+        port = 27994
+        s = ssl.wrap_socket(s, cert_reqs=ssl.CERT_NONE, ca_certs=None)
+
+    elif opt in ('-p'):
+        port = int(arg)
+
+
+
+neuID = args[1]
+host = args[0]
+
+# debugging
+# print "port : ", port
+# print "host :" , host
+# print "nuid : ", neuID
+
+# print("The time got from the server is %s" % tm.decode('ascii'))
+def solve(first , operator, second):
+    if(operator == '+'):
+        return int(first) + int(second)
+    elif(operator == '-'):
+        return int(first) - int(second)
+    elif(operator == '*'):
+        return int(first) * int(second)
+    elif(operator == '/'):
+        return int(first) / int(second)
+    else:
+        assert 'error'
+
+
+
+# get local machine name
+#host = socket.gethostname()
+#port = 27993
+
+# connection to hostname on the port.
+s.connect((host, port))
+
+message = "cs5700fall2016 HELLO "+neuID+"\n"
+s.send(message)
+
+# Receive no more than 1024 bytes
+tm = s.recv(256)
+#print tm
+values = tm.split()
+#print values
+
+while(len(values) > 0):
+    if(values[1] == 'STATUS'):
+        solution = solve(values[2], values[3], values[4])
+        #print "soution : ",solution
+        s.send("cs5700fall2016 "+str(solution)+"\n")
+        tm = s.recv(256)
+        #print tm
+        values = tm.split()
+        #print values
+# if the status from server is bye, close the connection and print the key
+    elif(values[2] == 'BYE'):
+        #print secret flag only
+        print values[1]
+        #print tm
+
+        s.close()
+        break
+# something unexpected happended
+    else:
+        s.close()
+        raise "Error"

@@ -1,0 +1,18 @@
+#1. This is the first project of CS5700. It is intended to
+familiarize students with writing simple network code.
+The server will ask your program to solve hundreds of simple
+mathematical expressions. If your program successfully solves
+all of the expressions, then the server will return a secret flag
+that is unique for each student.
+
+#2. I have attempted extra credit as well, the problem with SSL
+was how to properly write about the certificates.
+
+#3. The function to solve the mathematical expressions is pretty
+straight forward.
+
+#4. Talking to server is just a while loop which exits if there is
+an error or a 'BYE' message from the server.
+
+#5. I tested my code with cs5700sp16.ccs.neu.edu since cs5700f16.ccs.neu.edu
+was not working. However, for default, I am now using cs5700.ccs.neu.edu
