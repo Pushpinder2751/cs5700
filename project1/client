@@ -14,7 +14,7 @@ import ssl
 # default port value
 port = 27993
 # default host
-host = 'cs570016.ccs.neu.edu'
+host = 'cs5700f16.ccs.neu.edu'
 # create a socket object
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 try:
@@ -40,6 +40,10 @@ for opt, arg in opts:
 
 neuID = args[1]
 host = args[0]
+if(host != 'cs5700f16.ccs.neu.edu'):
+    print 'Unknown Host, try again!'
+    exit()
+
 
 # debugging
 # print "port : ", port
