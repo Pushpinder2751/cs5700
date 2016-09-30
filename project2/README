@@ -1,0 +1,42 @@
+This project asks us to make a web crawler and crawl pages of a made up website
+fakebook and extract flags out of the pages of it which is hidden somewhere on
+random page
+
+THE APPROACH:
+
+1) Connect to the server
+2) extract the session_id to continue on the same session
+3) once logged in, carry out a BFS search,
+    check if the url is already visited
+    visit a url,
+    mark as visited,
+    find flag if all,
+    if flag found, increment flag_count, exit at count = 5
+    handle all different HTML responses as instructed
+
+PROBLEMS:
+
+1) understanding how raw HTTP requests are sent was a pain, no good
+   resources online helped, TAs came to rescue.
+2) The HTTP post request was also tricky, had to turn to wireshark and
+   see what was wrong in the end. The CRLF token placement is tricky.
+3) I have used both Regex and BeautifulSoup where ever I found it convenient
+   to use, ideally, should only use one.
+4) Server sometimes did not behaved as expected. BFS just exausted without
+   giving out flags.
+
+
+Notes: I have created a small crawler stats in the end. Uncomment them to find
+how the crawler interacted with the server.
+
+I am posting for one such crawl:
+
+total urls visited :  4445
+200 :  4420
+301 or 302:  9
+403 or 404 :  12
+500 :  100
+unexpected response :  9
+Exceptions :  0
+flag_count :  5
+already_visited_links :  59111
