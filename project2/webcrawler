@@ -1,7 +1,4 @@
 #!/usr/bin/python
-# chmod 0744 client2.py
-# the above lines give appropriate permissions to run directly
-# client.py
 import socket
 # to parse arguments
 import sys, getopt
