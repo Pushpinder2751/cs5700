@@ -22,6 +22,8 @@ port = 80
 # these values are to be taken from commandline later
 # username = "001906268"
 # pwd = "9Z1V07EG"
+# vinayak username : "001647562"
+# vinayak pass : "XYOGP0CN"
 
 
 def check_validArgs():
