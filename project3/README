@@ -1,0 +1,61 @@
+This is a project which works with network Simulator (NS2), generates data(throughput, end-to-end latency , drop rate)
+for different variants of TCP(Tahoe, Reno, NewReno, Vegas)
+
+I have used an external file to parse(nstrace.py) the trace files which can be found here :
+http://intronetworks.cs.luc.edu/current/html/auxiliary_files/ns2/nstrace.py
+
+Experiment 1 : TCP Performance Under Congestion
+
+In this experiment we try to study the as a function of CBR(Constant bit rate)
+The data(throughput, end-to-end latency , drop rate) for each TCP variant vs different
+CBR rates(1-10)mb is generated and then analyzed.
+
+We have a Generic TCL file and a python file which generate the tr(trace files)
+and csv files for later analysis.
+
+To run exp1 :
+1. make
+2. python exp1.py
+
+This will create trace files in the folder trace_files/1_exp folder and
+csv files in csv_files/1_exp folder.
+
+To remove the files just type make clean
+
+Experiment 2: Fairness Between TCP Variants
+
+In this experiment we try to study how different TCP variants perform and provide
+fairness in presence of other TCP variants and CBR flow.
+
+to run exp2:
+1. make
+2. python exp2.py
+
+This will create trace files in the folder trace_files/2_exp folder and
+csv files in csv_files/2_exp folder.
+
+To remove the files just type: make clean
+
+
+Experiment 3: Influence of Queuing
+
+Queuing disciplines like DropTail and Random Early Drop (RED) are algorithms
+that control how packets in a queue are treated. In these experiments, instead
+ of varying the rate of the CBR flow, we study the influence of the queuing
+ discipline used by nodes on the overall throughput of flows.
+
+ to run exp3:
+ 1. make
+ 2. python exp3.py
+
+ This will create trace files in the folder trace_files/3_exp folder and
+ csv files in csv_files/3_exp folder.
+
+ To remove the files just type: make clean
+
+Problems faced :
+
+1. Creating and saving data in the right format was a challenge. I chose csv so that
+it is easy for us to generate graphs in excel or even R.
+
+2. We had to generate the graphs to confirm that the data being generated is legit.
