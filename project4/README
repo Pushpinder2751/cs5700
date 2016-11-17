@@ -1,0 +1,23 @@
+Project 4 : Raw Sockets
+
+Objective :
+
+The objective of this project is to download a file from the server using raw sockets.
+These sockets bypass Layer 2,3,4 of the network stack and builds TCP as well as IP Headers.
+There were 3 major parts:
+
+Building the TCP Header
+Building the IP Header
+Handling HTTP
+
+Running the program :
+
+1. make sure you are running sudo, as we need this for raw packets
+2. run make
+3. run ./rawhttpget URL
+4. check the downloaded file by comparing it with wget the same URL and doing diff 
+
+Challenges:
+1. Getting the handshake right
+2. handling retransmissoins from the server
+3. checksum handling

@@ -1,0 +1,459 @@
+#!/usr/bin/python
+
+# chmod 0744 client2.py
+
+# Every single number is 1 bit. So for example the Version field is 4 bit.
+# The header must be constructed exactly like shown.
+
+# TCP header RFC 793
+# 0                   1                   2                   3
+#     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |          Source Port          |       Destination Port        |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |                        Sequence Number                        |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |                    Acknowledgment Number                      |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |  Data |           |U|A|P|R|S|F|                               |
+#    | Offset| Reserved  |R|C|S|S|Y|I|            Window             |
+#    |       |           |G|K|H|T|N|N|                               |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |           Checksum            |         Urgent Pointer        |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |                    Options                    |    Padding    |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |                             data                              |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+# os.system("iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP")
+# use iptables-save now
+# use iptables-restore late
+
+# To understand why you need this rule, think about how the kernel behaves when it
+# receives unsolicited TCP packets. If your computer receives a TCP packet, and
+# there are no open ports waiting to receive that packet, the kernel generates a
+# TCP RST packet to let the sender know that the packet is invalid. However, in
+# your case, your program is using a raw socket, and thus the kernel has no idea
+# what TCP port you are using. So, the kernel will erroneously respond to packets
+# destined for your program with TCP RSTs. You don't want the kernel to kill your
+# remote connections, and thus you need to instruct the kernel to drop outgoing
+# TCP RST packets. You will need to recreate this rule each time your reboot your machine/VM.
+
+
+import socket, sys
+from socket import gethostname, gethostbyname
+from struct import *
+import signal
+from random import randint
+import time
+
+# custom file
+import ip
+import tcp
+import utility
+
+
+def signal_handler(signum, frame):
+    raise Exception("Time out")
+
+# need to create two for send and receive
+# create a raw socket for sending
+def create_send_socket():
+    try:
+        send_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
+    except socket.error , msg:
+        print 'Socket could not be created. Error Code : ' + str(msg[0]) + 'Message' + msg[1]
+        sys.exit()
+    return send_socket
+
+# create socket for receiving
+def create_receive_socket():
+    try:
+        receive_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW,  socket.IPPROTO_TCP)
+    except socket.error , msg:
+        print 'Socket could not be created. Error Code : ' + str(msg[0]) + 'Message' + msg[1]
+        sys.exit()
+    return receive_socket
+
+
+
+# tell kernel not to put in headers, since we are providing it, when using IPPROTO_RAW this is not necessary
+# s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+
+# url will look something : http://cs5700.ccs.neu.edu
+# and the host name we need is something like cs500.ccs.neu.edu
+# so we need a function to get the host name
+
+# might shift these to utility later
+
+url = "http://david.choffnes.com/classes/cs4700fa16/project4.php"
+url2 = "http://david.choffnes.com/classes/cs4700fa16/2MB.log"
+url2 = "http://david.choffnes.com/classes/cs4700fa16/10MB.log"
+url2 = "http://david.choffnes.com/classes/cs4700fa16/50MB.log"
+
+if(len(sys.argv) != 2 ):
+    print "usage : ./rawhttpget URL"
+    sys.exit()
+
+url = sys.argv[1]
+
+def get_hostname(url):
+
+    hostname = url.split('/')[2]
+
+    # print hostname
+    return hostname
+
+# get_hostname("http://www.ccis.northeastern.edu/")
+
+# need this to make HTTP GET request properly
+def get_relative_path(url, hostname):
+    start_position = url.find(hostname) + len(hostname)
+    # print url[start_position:]
+    return url[start_position:]
+
+# need this to get the file name from url or use defalult
+def get_file_name(url):
+    if url.endswith('/'):
+        file_name = 'index.html'
+    else:
+        file_name = url.split('/')[-1]
+    # print file_name
+    return file_name
+
+def make_http_request(url):
+    host = get_hostname(url)
+    path = get_relative_path(url, host)
+    request_get = "GET " + path + " HTTP/1.0\r\n" + \
+                   "Host: " + host + "\r\n" + \
+                   "Connection: keep-alive\r\n\r\n"
+    # request_g et = "GET "+path+" HTTP/1.0 \r\nHost: "+host+"\r\nConnection: keep-alive"+"\r\n\r\n"
+    # print request_get
+    return request_get
+
+# cunstructing the packet here :
+ip_packet = ''
+source_ip = utility.get_ip_address()
+# print "Source_IP address : ", source_ip
+dest_ip = socket.gethostbyname(get_hostname(url)) # or socket.gethostbyname('www.google.com')
+# print "dest ip : ", dest_ip
+# sys.exit()
+#
+# packet = ip.IP_packet(source_ip, dest_ip)
+# st = packet.construct_ip_header()
+# r_packet = ip.IP_packet()
+# r_packet.re_construct_ip_header(st)
+#
+# tcp_pkt = tcp.TCP_packet(source_ip, 20000, dest_ip)
+# st = tcp_pkt.construct_tcp_header()
+# print st
+
+s = create_send_socket()
+r = create_receive_socket()
+
+# initialte handshake :
+def handshake():
+
+    packet = ip.IP_packet(source_ip, dest_ip)
+    # packet.print_ip_header()
+    ip_packet_string = packet.construct_ip_header()
+    source_port = utility.get_random_port_name()
+    # print "random source port : ", source_port
+    packet = tcp.TCP_packet(source_ip, source_port, dest_ip )
+    # send syn to server
+    packet.syn = 1
+    packet.seq_no = randint(0, 65535)
+    # print "tcp constructed : "
+    # print "SYN is : "
+    # print packet.print_tcp_header()
+    tcp_packet_string = packet.construct_tcp_header()
+    # packet.re_construct_tcp_header(tcp_packet)
+
+
+
+    # no data initially
+    # send SYN
+    s.sendto((ip_packet_string + tcp_packet_string),  (dest_ip,80))
+
+    recvd_packet = filter_my_packet(source_port)
+
+    # print "is this the packet : SYN/ACK", recvd_packet
+    # recvd_packet.print_tcp_header()
+
+    # send ack if syn/ack is received
+    if recvd_packet.syn == 1 and recvd_packet.ack == 1 and \
+        packet.seq_no + 1 == recvd_packet.ack_no:
+        # print "sending ACK"
+        send_ACK(ip_packet_string, recvd_packet)
+        return recvd_packet
+        # return send_ACK(ip_packet_string, recvd_packet)
+
+    # handshake completes here send HTTP req now :
+
+# def get_file_from_url()
+
+# These are used again and again and creating
+# one again and agian caused performance problems.
+
+ip_header = ip.IP_packet(source_ip, dest_ip)
+tcp_header_ack = tcp.TCP_packet(source_ip, 0, dest_ip)
+
+cwnd_init = 1
+cwnd = cwnd_init
+
+def send_ACK(ip_packet_string, recvd_packet):
+    # send_socket = create_send_socket()
+
+    # ip_header = ip.IP_packet(source_ip, dest_ip)
+    ip_header.reset()
+    ip_header.saddr = source_ip
+    ip_header.daddr = dest_ip
+    # tcp_header_ack = tcp.TCP_packet(source_ip, recvd_packet.dest_port, dest_ip)
+    tcp_header_ack.reset()
+    tcp_header_ack.source_port =  recvd_packet.dest_port
+    tcp_header_ack.dest_port = recvd_packet.source_port
+    # client seq number = server ack number
+    tcp_header_ack.seq_no = recvd_packet.ack_no
+    # client ack number = server seq_no + 1
+    # print recvd_packet.seq_no
+    # tcp_header_ack.ack_no = recvd_packet.seq_no + 1
+    # The above comment is how it should be, Somehow this is working!
+    # check with professor
+    tcp_header_ack.ack_no = recvd_packet.seq_no + len(recvd_packet.data)
+    tcp_header_ack.window_size = socket.htons(15840)
+    # tcp_header_ack.window_size = recvd_packet.window_size
+
+    # tcp_header_ack.window_size = 14600
+    tcp_header_ack.ack = 1
+
+    # print "ACK is : "
+    # tcp_header_ack.print_tcp_header()
+
+    tcp_packet_string = tcp_header_ack.construct_tcp_header()
+    ip_header.tot_len = len(tcp_packet_string) + 20
+    ip_string = ip_header.construct_ip_header()
+
+    s.sendto((ip_string + tcp_packet_string),  (dest_ip,80))
+    return (ip_string + tcp_packet_string)
+
+
+ip_packet_r = ip.IP_packet(source_ip, dest_ip)
+tcp_packet_r = tcp.TCP_packet()
+packet_count = 0
+
+def filter_my_packet(source_port):
+    while True:
+        signal.signal(signal.SIGALRM, signal_handler)
+        signal.alarm(180)
+        try:
+            response = r.recvfrom(65565)
+        except Exception, msg:
+            print "time out!"
+            sys.exit()
+
+        raw = response[0]
+
+        # ip_packet_r = ip.IP_packet(source_ip, dest_ip)
+        ip_packet_r.reset()
+
+        ip_packet_r.re_construct_ip_header(raw[0:20])
+        # ip_packet_r.print_ip_header()
+        # tcp_packet_r = tcp.TCP_packet()
+        tcp_packet_r.reset()
+        tcp_packet_r.re_construct_tcp_header(raw[20:])
+        # print "port : ", tcp_packet_r.source_port
+        # tcp_packet.print_tcp_header()
+        # if tcp_packet.source_port == 80 and
+        if tcp_packet_r.dest_port == source_port:
+            # check1 = utility.checksum(raw[0:20])
+            # check2 = ip_packet_rself.check
+            # if check1 != check2:
+            #     print "check 1 : ", check1
+            #     print "check 2 : ", check2
+            #     print "aha -----------------"
+            #     sys.exit()
+            global packet_count
+            packet_count += 1
+            # print "found packet : "
+            # print "size : ", len(raw)
+            # print "packet_count : ", packet_count
+            # if tcp_packet_r.fin == 1:
+            #     print "found fin packet! =============="
+            # # print response
+            # tcp_packet_r.print_tcp_header()
+            return tcp_packet_r
+    # print packt.ack
+
+
+# steps :
+# get fin ack, send fin-ack, get ack, send ack
+
+def terminate_connection(recvd_packet):
+    # print "terminate sequence initiated"
+    # recvd_packet.print_tcp_header()
+    ip_packet = ip.IP_packet(source_ip, dest_ip)
+    source_port = recvd_packet.dest_port
+    dest_port = recvd_packet.source_port
+    tcp_packet = tcp.TCP_packet(source_ip, source_port, dest_ip, dest_port)
+    tcp_packet.seq_no = recvd_packet.ack_no
+    tcp_packet.ack_no = recvd_packet.seq_no + 1
+    tcp_packet.ack = 1
+    tcp_packet.fin = 1
+    tcp_packet.psh = 1
+    tcp_packet.window_size = socket.htons(15840)
+    # print tcp_packet.print_tcp_header()
+
+
+    tcp_packet_string = tcp_packet.construct_tcp_header()
+    ip_packet.tot_len = len(tcp_packet_string) + 20
+    ip_string = ip_packet.construct_ip_header()
+
+    s.sendto((ip_string + tcp_packet_string),  (dest_ip,80))
+
+
+
+    recvd_packet = filter_my_packet(recvd_packet.dest_port)
+    # print "response of server fin ack"
+    # recvd_packet.print_tcp_header()
+    send_ACK(ip_string, recvd_packet)
+# --------------------terminate finishes here -----------
+
+
+
+
+
+
+recvd_packet = handshake()
+
+def get_data(url, recvd_packet):
+    # initiate cwnd
+    cwnd = cwnd_init
+    # adv_wnd = recvd_packet.window_size
+    # ssthresh = adv_wnd
+
+    update_sequence_data = {}
+    # send HTTP request here :
+    downloaded_data_file = ""
+    # ip packet
+    ip_packet = ip.IP_packet(source_ip, dest_ip)
+
+    # tcp packet
+    source_port = recvd_packet.dest_port
+    tcp_packet = tcp.TCP_packet(source_ip, source_port, dest_ip)
+    tcp_packet.seq_no = recvd_packet.ack_no
+    tcp_packet.ack_no = recvd_packet.seq_no + 1
+    tcp_packet.ack = 1
+    tcp_packet.psh = 1
+
+    http_request = make_http_request(url)
+    # very very important!!
+    tcp_packet.data = http_request
+    # # tcp_packet.data = http_request
+    tcp_packet_string = tcp_packet.construct_tcp_header()
+    # # # # create and do appropriate changes in tcp header here, such as seq and window size
+
+    ip_packet.tot_len = 20 + len(tcp_packet_string) + len(http_request)
+    ip_packet_string = ip_packet.construct_ip_header()
+
+
+    # print "tot http len : ------", len(http_request)
+    # print "ack_no : ", tcp_packet.ack_no
+    s.sendto((ip_packet_string + tcp_packet_string + http_request),  (dest_ip,80))
+    size_of_data = 0
+    expected_seq = 0
+    # http_200_ok_flag = True
+    # count = 50
+    while True:
+        # time_1 = int(time.time())
+        # print "I am here-------------------"
+
+        recvd_packet = filter_my_packet(source_port)
+        # print "I RECEIVED!!! : "
+        # recvd_packet.print_tcp_header()
+
+        if recvd_packet.fin == 1:
+            # print "I got a  fin packet!!-------------------------"
+            update_sequence_data.update({recvd_packet.seq_no: recvd_packet.data})
+            # initiate tear down here
+            terminate_connection(recvd_packet)
+            break
+        # if expected_seq == recvd_packet.seq_no + len(recvd_packet.data):
+        #     print "Somthing went wrong, sending previous ACK again!"
+        #     # print len(recvd_packet.data)
+        #     # send_ACK(ip_packet_string, recvd_packet)
+        #     # time_2 = int(time.time())
+        #     # print "time in loop : ", time_2 - time_1
+        #     continue
+        #     # sys.exit()
+
+
+
+
+
+        # print "data : ", recvd_packet.data
+        if (recvd_packet.ack == 1 or recvd_packet.fin == 1)\
+            and recvd_packet.data != "":
+
+            # print "GOT HERE ---------------"
+
+
+            previous_packet = recvd_packet
+            # print recvd_packet.data
+            # print " http :"
+            # print recvd_packet.data.find ('200 OK')
+            # just check once for HTTP 200 ok, remove and
+            # extract data
+            # ideally, should happen only once!
+            if recvd_packet.data.find ('200 OK') > 0:
+                position = recvd_packet.data.find('\r\n\r\n') + 4
+                downloaded_data_file += recvd_packet.data[(position):]
+                # print recvd_packet.data
+                # print "file ==============: "
+                # print downloaded_data_file
+                send_ACK(ip_packet_string, recvd_packet)
+                # updating congestion window
+                cwnd+= 1
+                continue
+
+
+            # print "seq_no : ",recvd_packet.seq_no
+            # print "next seq_no : ", recvd_packet.seq_no + len(recvd_packet.data)
+            expected_seq = recvd_packet.seq_no + len(recvd_packet.data)
+
+            update_sequence_data.update({recvd_packet.seq_no: recvd_packet.data})
+            if cwnd < 1000:
+                cwnd += 1
+            else:
+                cwnd = cwnd_init
+            # print "data : "
+            # print update_sequence_data
+
+            send_ACK(ip_packet_string, recvd_packet)
+
+            size_of_data += len(recvd_packet.data)
+            # print "size_downloaded : ", size_of_data
+            # print "cwnd : ", cwnd
+            # time_2 = int(time.time())
+            # print "time in loop : ", time_2 - time_1
+        if recvd_packet.fin == 1:
+            # print "I got a fin packet!!-------------------------"
+            update_sequence_data.update({recvd_packet.seq_no: recvd_packet.data})
+            break
+        # count -= 1
+    # print "seq : data !"
+    # print update_sequence_data
+    for seq in sorted(update_sequence_data):
+
+        # print " data : -----"
+        # print update_sequence_data[seq]
+        downloaded_data_file += update_sequence_data[seq]
+    print "---------------file--------------------"
+    print "success!"
+    # print downloaded_data_file
+    filename = get_file_name(url)
+    file1 = open(filename, "wt")
+    file1.write(downloaded_data_file)
+    file1.close()
+get_data(url, recvd_packet)
