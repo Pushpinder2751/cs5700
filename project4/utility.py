@@ -55,3 +55,16 @@ def checksum(msg):
     s = ~s & 0xffff
 
     return s
+
+def checksum2(msg):
+
+        if len(msg) % 2 == 1:
+            msg += struct.pack('B', 0)
+        chk = 0
+        for i in range(0, len(msg), 2):
+            w = ord(msg[i]) + (ord(msg[i + 1]) << 8)
+            chk += w
+        chk = (chk >> 16) + (chk & 0xffff)
+        chk += chk >> 16
+        chk = ~chk & 0xffff
+        return chk

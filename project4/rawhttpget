@@ -152,7 +152,7 @@ dest_ip = socket.gethostbyname(get_hostname(url)) # or socket.gethostbyname('www
 
 s = create_send_socket()
 r = create_receive_socket()
-
+original_seq_no = 0
 # initialte handshake :
 def handshake():
 
@@ -165,6 +165,9 @@ def handshake():
     # send syn to server
     packet.syn = 1
     packet.seq_no = randint(0, 65535)
+    global original_seq_no
+    original_seq_no = packet.seq_no
+
     # print "tcp constructed : "
     # print "SYN is : "
     # print packet.print_tcp_header()
@@ -267,15 +270,19 @@ def filter_my_packet(source_port):
         # tcp_packet.print_tcp_header()
         # if tcp_packet.source_port == 80 and
         if tcp_packet_r.dest_port == source_port:
-            # check1 = utility.checksum(raw[0:20])
+            check1 = utility.checksum2(raw[20:])
             # check2 = ip_packet_rself.check
-            # if check1 != check2:
-            #     print "check 1 : ", check1
-            #     print "check 2 : ", check2
-            #     print "aha -----------------"
-            #     sys.exit()
             global packet_count
-            packet_count += 1
+            if check1 != 0 and packet_count > 3:
+                # print "aha -----------------bad packet"
+
+
+                packet_count += 1
+                # print packet_count
+                print check1
+                sys.exit()
+
+
             # print "found packet : "
             # print "size : ", len(raw)
             # print "packet_count : ", packet_count
@@ -393,8 +400,7 @@ def get_data(url, recvd_packet):
 
 
         # print "data : ", recvd_packet.data
-        if (recvd_packet.ack == 1 or recvd_packet.fin == 1)\
-            and recvd_packet.data != "":
+        if (recvd_packet.ack == 1 or recvd_packet.fin == 1):
 
             # print "GOT HERE ---------------"
 
@@ -444,7 +450,11 @@ def get_data(url, recvd_packet):
         # count -= 1
     # print "seq : data !"
     # print update_sequence_data
+    # global original_seq_no
+    # print "original : ",original_seq_no
+
     for seq in sorted(update_sequence_data):
+        # print seq - original_seq_no
 
         # print " data : -----"
         # print update_sequence_data[seq]

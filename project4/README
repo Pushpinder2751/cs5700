@@ -10,12 +10,26 @@ Building the TCP Header
 Building the IP Header
 Handling HTTP
 
+Design :
+
+Since the program was quite large, it made sense to segregate it into multiple files.
+* All the things related to IP header are in the file ip.py, this includes a class
+which takes in all the arguments, constructing the IP header string from the class
+and re-constructing it from the string to a class, printing the packet details
+for debugging.
+* All the things related to TCP header are in the file tcp.py, this includes a class
+which takes in all the arguments, constructing the TCP header string from the class
+and re-constructing it from the string to a class, printing the packet details
+for debugging.
+* utility.py has all the basic functions.
+  
+
 Running the program :
 
 1. make sure you are running sudo, as we need this for raw packets
 2. run make
 3. run ./rawhttpget URL
-4. check the downloaded file by comparing it with wget the same URL and doing diff 
+4. check the downloaded file by comparing it with wget the same URL and doing diff
 
 Challenges:
 1. Getting the handshake right
