@@ -1,0 +1,103 @@
+#!/usr/bin/python
+# need to give it permissions in makefile
+#chmod 0744
+import sys, getopt
+import subprocess
+
+# ec2-54-167-4-20.compute-1.amazonaws.com	Origin server (running Web server on port 8080)
+
+replica_servers = [
+"ec2-54-210-1-206.compute-1.amazonaws.com",
+"ec2-54-67-25-76.us-west-1.compute.amazonaws.com",
+"ec2-35-161-203-105.us-west-2.compute.amazonaws.com",
+"ec2-52-213-13-179.eu-west-1.compute.amazonaws.com",
+"ec2-52-196-161-198.ap-northeast-1.compute.amazonaws.com",
+"ec2-54-255-148-115.ap-southeast-1.compute.amazonaws.com",
+"ec2-13-54-30-86.ap-southeast-2.compute.amazonaws.com",
+"ec2-52-67-177-90.sa-east-1.compute.amazonaws.com",
+"ec2-35-156-54-135.eu-central-1.compute.amazonaws.com"]
+
+def validate_args():
+    # we do not really need the port number, origin_server in this file
+    PORT = ''
+    ORIGIN_SERVER = ''
+    CDN_SERVER = 'cs5700cdnproject.ccs.neu.edu'
+    RSA_KEY = ''
+    USER_NAME = ''
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "p:o:n:u:i:h" ,["help"])
+    except getopt.GetoptError:
+        print "./[deploy|run|stop]CDN -p <port> -o <origin> -n <name> -u <username> -i <keyfile>"
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            print "./[deploy|run|stop]CDN -p <port> -o <origin> -n <name> -u <username> -i <keyfile>"
+            sys.exit(1)
+        elif opt in ('-p'):
+            PORT = arg
+
+        elif opt in ('-o'):
+            ORIGIN_SERVER = arg
+
+        elif opt in ('-n'):
+            CDN_SERVER = arg
+
+        elif opt in ('-u'):
+            USER_NAME = arg
+
+        elif opt in ('-i'):
+            RSA_KEY = arg
+
+
+    # print "port : ", PORT
+    # print "origin_server : ", ORIGIN_SERVER
+    # print "cdn_server : ", CDN_SERVER
+    # print "username : ", USER_NAME
+    # print "rsa key file : ", RSA_KEY
+
+    return PORT, ORIGIN_SERVER, CDN_SERVER, USER_NAME, RSA_KEY
+
+# we need to log in to the given dns server and then copy our files
+# there using our rsa private key
+
+def deploy_dns_server(RSA_KEY, USER_NAME, CDN_SERVER):
+    # scp the file to the DNS server
+    ssh_command = "ssh -i " + RSA_KEY + " " + USER_NAME + "@" + CDN_SERVER + " "
+    # command to make a folder to put the scripts in
+    command_1 = ssh_command + "'mkdir scripts_project5'"
+    # command to copy the contents to the above said folder
+    command_2 = "scp -i " + RSA_KEY + " dnsserver dns_server.py measurements.py "\
+                + USER_NAME + "@" + CDN_SERVER + ":/home/" + USER_NAME + "/scripts_project5/"
+
+    # print command_1
+    # print command_2
+    p = subprocess.check_output(command_1, shell = True)
+    q = subprocess.check_output(command_2, shell = True)
+
+    print p
+    print q
+
+# things to to in this function
+# copy all the necessary files to all replica_servers
+# give them appropriate permissions to the files
+def deploy_http_server(RSA_KEY, USER_NAME, replica_servers):
+    # iterate through each replica server
+    for replica in replica_servers:
+        # scp
+        command_1 = "scp -i "+ RSA_KEY + " httpserver "+ USER_NAME+"@"+replica+":~"
+        # print command_1
+        # permissions
+        command_2 = "ssh -i "+ RSA_KEY + " " + USER_NAME + "@" + replica + " 'chmod 0744 ~/httpserver'"
+        # print command_2
+        # p = subprocess.check_output(command_1, shell = True)
+        # q = subprocess.check_output(command_2, shell = True)
+
+
+if __name__ == '__main__':
+
+    PORT, ORIGIN_SERVER, CDN_SERVER, USER_NAME, RSA_KEY = validate_args()
+
+    deploy_dns_server(RSA_KEY, USER_NAME, CDN_SERVER)
+    deploy_http_server(RSA_KEY, USER_NAME, replica_servers)

@@ -1,0 +1,135 @@
+#!/usr/bin/python
+
+import sys, os, re, urllib2, hashlib, zlib, urlparse
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+import SocketServer
+import threading
+
+
+class Handler(BaseHTTPRequestHandler):
+
+    def do_GET(self):
+
+        global total_mem, hit, check, cache # Using OpSys cache hit and cache miss concept
+
+        a = hashlib.md5()
+        a.update(self.path)
+        cf = a.hexdigest() + ".store"
+        print cf
+        # Do this if data exists in cache
+
+        if cf in cache:
+            print 'Hit'
+            res = cache[cf]
+            if cf not in hit:
+                hit[cf]=1
+            else:
+                hit[cf] += 1    #since we found the data in cache, hit = hit+1
+            check[cf] = 0   # we initialise thic counter to help faciliatate LRU
+
+            res = zlib.decompress(res) # to decompress already compressed data from cache
+
+            # Instance variables of BaseHTTPRequestHandler
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(res)
+
+        # If not found in cache, but is in disk. If not, origin server
+        else:
+            if os.path.isfile(cf):
+                print 'Found in disk'
+                with open(cf, 'r') as fil:
+                    res_comp = fil.read()
+
+                res = zlib.decompress(res_comp)
+                # Instance variables of BaseHTTPRequestHandler
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(res)
+
+            else:
+                print 'Miss'
+                try:
+                    o = urllib2.urlopen("http://"+origin_server+":8080"+self.path)
+                    res = o.read()
+                except urllib2.HTTPError as he:
+                    res = he.fp.read()
+
+                # Instance variables of BaseHTTPRequestHandler
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(res)
+
+                res_comp = zlib.compress(res)
+                cache[cf] = res_comp
+
+            while total_mem + len(res_comp) > 9500000:
+                #Check if the memory total is greater than ~9.5 MB. We have 10MB
+                # for storing all our files including cache, so we reserve some space for our scripts
+
+                # We now decide which file to remove (ftr) based on LRU.
+
+                ftr = 0
+                max_hit = 1000000000000000
+
+
+                # We go through every file in our cache:
+
+                for i in cache:
+                    if check[i] > 0 and hit[i] < max_hit:
+                        file_to_remove = i
+
+
+                cache.pop(file_to_remove)
+                hit.pop(file_to_remove)
+                check.pop(file_to_remove)
+		os.remove(cf)
+
+                # reset the values
+                cache[cf] = res_comp
+                hit[cf] = 1
+                check[cf] = 0
+                with open(cf, 'w') as fil:
+                    f.write(res_comp)
+
+
+                for i in check:
+                    check[i] += 1 #Increment check
+
+
+
+class ThreadedHTTPServer(SocketServer.ThreadingMixIn, HTTPServer):
+    pass
+
+if __name__ == '__main__':
+    try:
+        p = int(sys.argv[2])
+        origin_server = sys.argv[4]
+    except:
+        print 'Check Arguments. It should be in the format: ./httpserver -p <port> -o <origin>'
+        sys.exit()
+
+    total_mem = 0
+    cache = {}
+    check = {}
+    hit = {}
+
+
+
+    # server = HTTPServer(('',p), Handler)
+    # server.serve_forever()
+
+    server = ThreadedHTTPServer(('', p), Handler)
+
+    ip, port = server.server_address
+    # print ip
+    # print port
+    server.serve_forever()
+    # start a thread with the server --
+       # that thread will then start one
+       # more thread for each request
+    server_thread = threading.Thread(target = server.serve_forever)
+
+    # Exit the server thread when the main thread terminates
+    server_thread.daemon = True
+    server_thread.start()

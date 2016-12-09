@@ -1,0 +1,80 @@
+
+Content Delivery Network December 2016
+
+This project is implemented in python using AWS servers located
+at different sites all over the world
+The objective is to give the client an IP address of a replica server
+which can deliver the content with minimum latence
+
+# How to run :
+1. Make
+To give the necessary permissions to the scripts to run
+
+2. deployCDN, runCDN and stopCDN :
+./[deploy|run|stop]CDN -p <port> -o <origin> -n <name> -u <username> -i <keyfile>
+
+3. DNS Server:
+./dnsserver -p <port> -o <origin>
+
+4. HTTP Server:
+./httpserver -p <port> -o <origin>
+
+# How it works/High Level Approach :
+## DNS Server :
+The toughest part of this was to understand the DNS packet structure.When a DNS server
+starts, it does the following :
+    1. Creates a socket and then listens on the port specified
+    2. On getting a request, unpack the packet, assemble it in a DNS class structure
+    3. We then find the closet replica server to the client IP address. This is done
+    using an external API(gets lat, lon), calculate the distance with the available replicas
+    4. cache the Client IP:Response IP for further queries
+    5. Pack the IP of the replica server in a DNS response and send it back to the client
+
+## Challenges in the DNS server :
+1. We took a lot of time understanding the project and how to start implementing it.
+2. Understanding the DNS packet was also not trivial
+3. Since there are a lot of approaches to find an optimal replica server, we took a lot
+   time figuring out what is the best approach. In the end we went with finding the GEO IP,
+   i.e. get the geo location of the client, calculate the necessary replica(we know the replica GEOs)
+   and send back the response
+4. Another problem is what if the client sends a private IP address, in that case we return a random
+   replica server, however, we feel there could be a better way to do this.
+5. Sometimes, we are not able to unpack the packet properly, this still needs to be worked upon.
+   Upon extensive experimentation, I found that there is some error how the data is received.
+6. I have made more than one method to unpack the dns question, however the results were the same so
+   the second one remains unused. 
+
+## HTTP Server :
+
+The custom HTTP Server was written by overriding the DO_GET() method in
+HTTPServer(built in class of python). If the file is not in the server,
+request is sent to origin server, the file is cached and sent as response
+to the client.
+High Level Approach :
+1. Start a server, listening on the port mentioned
+2. Create a new thread on each request.
+3. Each thread, checks if the requested file is in the cache, if present,
+server it from there, otherwise, fetch the content from origin server,
+send it as response and add it to cache for further use.
+4. We use a cache of 9.5 MB.
+
+## Challenges in the HTTP Server:
+1. We built an LRU cache, but we could improve in further as we know that the
+content frequency follows a Zipf distribution which could be looked into.
+2. We used threading for quicker replies, however, we also need to use lock
+on the cache as it could be updated simultaneously. Since the server is not
+going to be load tested, this is not a problem for now.
+
+## Future Scope
+There is a lot of scope for improvement in this implementation.
+1. Involve server load and RTT times from all the replica servers to get the best
+estimate for the most appropriate replica server
+2. Caching can be improved by using ranking and other algorithms.
+
+## References :
+
+https://docs.python.org/2/library/socketserver.html
+https://docs.python.org/2/library/simplehttpserver.html
+http://stackoverflow.com/questions/14088294/multithreaded-web-server-in-python
+http://stackoverflow.com/questions/4913349/haversine-formula-in-python-bearing-and-distance-between-two-gps-points
+http://stackoverflow.com/questions/18502945/how-to-execute-a-remote-command-over-ssh-with-arguments
