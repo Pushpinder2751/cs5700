@@ -42,7 +42,8 @@ def validate_args():
             ORIGIN_SERVER = arg
 
         elif opt in ('-n'):
-            CDN_SERVER = arg
+            # CDN_SERVER = arg
+            resolve_name = arg
 
         elif opt in ('-u'):
             USER_NAME = arg
@@ -66,18 +67,18 @@ def deploy_dns_server(RSA_KEY, USER_NAME, CDN_SERVER):
     # scp the file to the DNS server
     ssh_command = "ssh -i " + RSA_KEY + " " + USER_NAME + "@" + CDN_SERVER + " "
     # command to make a folder to put the scripts in
-    command_1 = ssh_command + "'mkdir scripts_project5'"
+    # command_1 = ssh_command + "'mkdir scripts_project5'"
     # command to copy the contents to the above said folder
     command_2 = "scp -i " + RSA_KEY + " dnsserver dns_server.py measurements.py "\
-                + USER_NAME + "@" + CDN_SERVER + ":/home/" + USER_NAME + "/scripts_project5/"
+                + USER_NAME + "@" + CDN_SERVER + ":/home/" + USER_NAME + "/"
 
     # print command_1
     # print command_2
-    p = subprocess.check_output(command_1, shell = True)
+    # p = subprocess.check_output(command_1, shell = True)
     q = subprocess.check_output(command_2, shell = True)
 
-    print p
-    print q
+    # print p
+    # print q
 
 # things to to in this function
 # copy all the necessary files to all replica_servers

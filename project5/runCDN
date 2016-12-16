@@ -42,7 +42,7 @@ def validate_args():
             ORIGIN_SERVER = arg
 
         elif opt in ('-n'):
-            CDN_SERVER = arg
+            resolve_name = arg
 
         elif opt in ('-u'):
             USER_NAME = arg
@@ -61,7 +61,7 @@ def validate_args():
 
 def run_dns_server(PORT, CDN_SERVER, USER_NAME, RSA_KEY):
     # getting this right is tricky
-    run_command = "cd scripts_project5; ./dnsserver -p " + PORT + " -n " + "cs5700cdn.example.com"
+    run_command = "./dnsserver -p " + PORT + " -n " + "cs5700cdn.example.com"
     # print run_command
     # I still do not understand what I am doing here : "< /dev/null > std.out 2> std.err"
     command = "ssh -i "+ RSA_KEY + " " + USER_NAME + "@" + CDN_SERVER + " '"+ run_command +"< /dev/null > std.out 2> std.err &" +"'"

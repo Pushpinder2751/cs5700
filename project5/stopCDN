@@ -42,7 +42,8 @@ def validate_args():
             ORIGIN_SERVER = arg
 
         elif opt in ('-n'):
-            CDN_SERVER = arg
+            # CDN_SERVER = arg
+            resolve_name = arg
 
         elif opt in ('-u'):
             USER_NAME = arg
@@ -63,7 +64,7 @@ def stop_dns_server(PORT, CDN_SERVER, USER_NAME, RSA_KEY):
 
     run_command = "pkill -f dns_server.py -u "+USER_NAME
     # print run_command
-    command = "ssh -i "+ RSA_KEY + " " + USER_NAME + "@" + CDN_SERVER + " '"+run_command+"'"
+    command = "ssh -i "+ RSA_KEY + " " + USER_NAME + "@" + CDN_SERVER + " '"+run_command +"< /dev/null > std.out 2> std.err &" +"'"
     # print command
     subprocess.check_output(command, shell = True)
     # print p
@@ -73,7 +74,7 @@ def stop_http_servers(RSA_KEY, USER_NAME, replica_servers):
     for replica in replica_servers:
         run_command = "pkill -f httpserver -u "+ USER_NAME
 
-        command = "ssh -i "+RSA_KEY + " " + USER_NAME + "@"+ replica + " '"+run_command+"'"
+        command = "ssh -i "+RSA_KEY + " " + USER_NAME + "@"+ replica + " '"+run_command +"< /dev/null > std.out 2> std.err &" +"'"
         # print command
         subprocess.check_output(command, shell = True)
 
